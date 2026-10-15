@@ -1,0 +1,251 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Dashboard</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #74ebd5, #acb6e5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 450px;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px #0002;
+        }
+
+        h1 {
+            color: #253858;
+            margin-bottom: 20px;
+        }
+
+        .search {
+            display: flex;
+            gap: 8px;
+        }
+
+        input {
+            flex: 1;
+            min-width: 0;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+
+        button {
+            padding: 12px 15px;
+            background: #2878d0;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1559a5;
+        }
+
+        #weather {
+            margin-top: 25px;
+        }
+
+        .icon {
+            font-size: 60px;
+            margin: 10px;
+        }
+
+        .temp {
+            font-size: 45px;
+            font-weight: bold;
+            color: #2878d0;
+        }
+
+        .details {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 15px 5px;
+            background: #eef6ff;
+            border-radius: 12px;
+        }
+
+        .details p {
+            margin: 6px 0;
+        }
+
+        #message {
+            margin-top: 15px;
+            color: #d93025;
+        }
+
+        .credit {
+            margin-top: 20px;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="dashboard">
+        <h1>🌦 Weather Dashboard</h1>
+
+        <div class="search">
+            <input type="text" id="city"
+                   placeholder="Enter city name"
+                   value="Chennai">
+            <button onclick="getWeather()">Search</button>
+        </div>
+
+        <p id="message" role="status"></p>
+        <div id="weather"></div>
+
+        <p class="credit">Live weather powered by Open-Meteo API</p>
+    </div>
+
+    <script>
+        async function getWeather() {
+            const city = document.getElementById("city").value.trim();
+            const message = document.getElementById("message");
+            const weather = document.getElementById("weather");
+
+            if (!city) {
+                message.textContent = "Please enter a city name!";
+                weather.innerHTML = "";
+                return;
+            }
+
+            message.style.color = "#333";
+            message.textContent = "Loading weather...";
+            weather.innerHTML = "";
+
+            try {
+                // Step 1: Fetch city coordinates using REST API
+                const geoResponse = await fetch(
+                    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`
+                );
+
+                if (!geoResponse.ok) {
+                    throw new Error("Unable to find location.");
+                }
+
+                const geoData = await geoResponse.json();
+
+                if (!geoData.results || geoData.results.length === 0) {
+                    throw new Error("City not found. Try another city.");
+                }
+
+                const place = geoData.results[0];
+                const latitude = place.latitude;
+                const longitude = place.longitude;
+
+                // Step 2: Fetch real-time weather data
+                const weatherResponse = await fetch(
+                    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto`
+                );
+
+                if (!weatherResponse.ok) {
+                    throw new Error("Unable to fetch weather data.");
+                }
+
+                // Step 3: Convert JSON response into JavaScript objects
+                const data = await weatherResponse.json();
+                const current = data.current;
+
+                // Step 4: Process weather condition
+                const conditions = {
+                    0: ["☀️", "Clear Sky"],
+                    1: ["🌤️", "Mainly Clear"],
+                    2: ["⛅", "Partly Cloudy"],
+                    3: ["☁️", "Overcast"],
+                    45: ["🌫️", "Fog"],
+                    48: ["🌫️", "Rime Fog"],
+                    51: ["🌦️", "Light Drizzle"],
+                    53: ["🌦️", "Drizzle"],
+                    55: ["🌧️", "Heavy Drizzle"],
+                    61: ["🌧️", "Light Rain"],
+                    63: ["🌧️", "Rain"],
+                    65: ["🌧️", "Heavy Rain"],
+                    71: ["🌨️", "Light Snow"],
+                    73: ["❄️", "Snow"],
+                    75: ["❄️", "Heavy Snow"],
+                    80: ["🌦️", "Rain Showers"],
+                    81: ["🌧️", "Rain Showers"],
+                    82: ["⛈️", "Heavy Showers"],
+                    95: ["⛈️", "Thunderstorm"]
+                };
+
+                const condition = conditions[current.weather_code]
+                    || ["🌡️", "Weather Condition"];
+
+                // Step 5: Display processed data on the webpage
+                message.textContent = "";
+                weather.innerHTML = `
+                    <h2>${place.name}, ${place.country || ""}</h2>
+                    <div class="icon">${condition[0]}</div>
+                    <div class="temp">${current.temperature_2m}°C</div>
+                    <h3>${condition[1]}</h3>
+
+                    <div class="details">
+                        <div>
+                            <p>💧 Humidity</p>
+                            <strong>${current.relative_humidity_2m}%</strong>
+                        </div>
+                        <div>
+                            <p>🌬️ Wind</p>
+                            <strong>${current.wind_speed_10m} km/h</strong>
+                        </div>
+                    </div>
+
+                    <p style="margin-top:15px">
+                        Feels like: ${current.apparent_temperature}°C
+                    </p>
+
+                    <p style="margin-top:10px;color:#666;font-size:12px">
+                        Updated: ${new Date(current.time).toLocaleString()}
+                    </p>
+                `;
+
+            } catch (error) {
+                message.style.color = "#d93025";
+                message.textContent = error.message
+                    || "Something went wrong. Please try again.";
+                weather.innerHTML = "";
+            }
+        }
+
+        // Load default city's weather when page opens
+        getWeather();
+
+        // Search city when Enter key is pressed
+        document.getElementById("city").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                getWeather();
+            }
+        });
+    </script>
+
+</body>
+</html>
